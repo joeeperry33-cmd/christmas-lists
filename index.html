@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Perry Family Christmas Lists</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎄</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #faf6f0; --card: #ffffff; --ink: #1f2a24; --muted: #6b746e; --line: #e6e0d6;
+    --red: #b3261e; --red-ink: #ffffff; --green: #1f5c3f; --green-soft: #e3efe7; --gold: #a8741a;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 4px 16px rgba(0,0,0,.05);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #121815; --card: #1b231f; --ink: #eef2ef; --muted: #9aa59f; --line: #2c3631;
+      --red: #e0574d; --red-ink: #1a0f0e; --green: #7cc59d; --green-soft: #1f3329; --gold: #e0b45c;
+      --shadow: none; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Inter, system-ui, sans-serif; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1, h2 { font-family: Fraunces, Georgia, serif; font-weight: 600; margin: 0; }
+  h1 { font-size: 28px; } h2 { font-size: 22px; }
+  header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .muted { color: var(--muted); font-size: 14px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; box-shadow: var(--shadow); }
+  button, .btn { font: inherit; font-weight: 500; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--ink); padding: 8px 14px; cursor: pointer; }
+  button.primary { background: var(--red); color: var(--red-ink); border-color: var(--red); }
+  button.small { padding: 4px 10px; font-size: 14px; }
+  button:disabled { opacity: .6; cursor: default; }
+  input, textarea { font: inherit; width: 100%; padding: 9px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); color: var(--ink); }
+  textarea { resize: vertical; min-height: 60px; }
+  label { display: block; font-size: 14px; font-weight: 500; margin: 12px 0 4px; }
+  .auth { max-width: 380px; margin: 8vh auto 0; }
+  .tabs { display: flex; gap: 6px; margin: 16px 0 4px; }
+  .tabs button { flex: 1; }
+  .tabs button[aria-pressed="true"] { background: var(--green-soft); border-color: var(--green); color: var(--green); }
+  .err { color: var(--red); font-size: 14px; min-height: 20px; margin-top: 10px; }
+  .people { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+  .people button[aria-pressed="true"] { background: var(--green); color: var(--bg); border-color: var(--green); }
+  ul.items { list-style: none; margin: 16px 0 0; padding: 0; }
+  ul.items li { border-top: 1px solid var(--line); padding: 14px 0; display: flex; gap: 12px; justify-content: space-between; align-items: flex-start; }
+  ul.items li:first-child { border-top: 0; }
+  .item-main { min-width: 0; flex: 1; }
+  .item-title { font-weight: 600; overflow-wrap: anywhere; }
+  .item-title.claimed { text-decoration: line-through; color: var(--muted); }
+  .item-notes { color: var(--muted); font-size: 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .item-link { font-size: 14px; color: var(--green); overflow-wrap: anywhere; }
+  .actions { display: flex; gap: 6px; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
+  .tag { font-size: 13px; color: var(--gold); font-weight: 500; }
+  .add { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 8px; }
+  .row { display: flex; gap: 8px; margin-top: 12px; }
+  .empty { color: var(--muted); padding: 16px 0 4px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- Sign in / sign up -->
+  <section id="auth" class="auth card hidden">
+    <h1>🎄 Perry Family Lists</h1>
+    <p class="muted">Sign in to see everyone's Christmas lists.</p>
+    <div class="tabs">
+      <button type="button" id="tab-in" aria-pressed="true">Sign in</button>
+      <button type="button" id="tab-up" aria-pressed="false">New here</button>
+    </div>
+    <form id="auth-form">
+      <div id="name-field" class="hidden">
+        <label for="name">Your name (what family will see)</label>
+        <input id="name" maxlength="40" autocomplete="nickname">
+      </div>
+      <label for="email">Email</label>
+      <input id="email" type="email" required autocomplete="email">
+      <label for="password">Password</label>
+      <input id="password" type="password" required minlength="6" autocomplete="current-password">
+      <div class="row"><button class="primary" type="submit" id="auth-submit" style="flex:1">Sign in</button></div>
+      <div class="err" id="auth-err" role="alert"></div>
+    </form>
+  </section>
+
+  <!-- Pick a name (for accounts without a profile yet) -->
+  <section id="naming" class="auth card hidden">
+    <h2>What should family call you?</h2>
+    <form id="name-form">
+      <label for="name2">Your name</label>
+      <input id="name2" maxlength="40" required>
+      <div class="row"><button class="primary" type="submit" style="flex:1">Continue</button></div>
+      <div class="err" id="name-err" role="alert"></div>
+    </form>
+  </section>
+
+  <!-- Main app -->
+  <section id="app" class="hidden">
+    <header>
+      <div>
+        <h1>🎄 Perry Family Lists</h1>
+        <div class="muted" id="hello"></div>
+      </div>
+      <button type="button" id="signout">Sign out</button>
+    </header>
+    <nav class="people" id="people" aria-label="Family members"></nav>
+    <div class="card">
+      <h2 id="list-title"></h2>
+      <div class="muted" id="list-sub"></div>
+      <ul class="items" id="items"></ul>
+      <form class="add hidden" id="add-form">
+        <label for="new-title">Add something to your list</label>
+        <input id="new-title" maxlength="200" placeholder="e.g. Cozy wool socks" required>
+        <label for="new-link">Link (optional)</label>
+        <input id="new-link" type="url" maxlength="1000" placeholder="https://…">
+        <label for="new-notes">Notes (optional)</label>
+        <textarea id="new-notes" maxlength="1000" placeholder="Size, color, any store…"></textarea>
+        <div class="row"><button class="primary" type="submit">Add to my list</button></div>
+        <div class="err" id="add-err" role="alert"></div>
+      </form>
+    </div>
+  </section>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script>
+// ---- Settings: filled in when the database is set up ----
+const SUPABASE_URL = 'https://jsxysokftxidqxhqbjyh.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_qaByi9wbx_WYcXPGucj4VQ_6uIcHNgv';
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (id) => document.getElementById(id);
+const show = (id) => ['auth', 'naming', 'app'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+
+let me = null;          // { id, display_name }
+let people = [];        // all profiles
+let selectedId = null;  // whose list is showing
+let mode = 'in';        // auth tab
+
+// ---------- Auth ----------
+function setMode(m) {
+  mode = m;
+  $('tab-in').setAttribute('aria-pressed', m === 'in');
+  $('tab-up').setAttribute('aria-pressed', m === 'up');
+  $('name-field').classList.toggle('hidden', m === 'in');
+  $('name').required = m === 'up';
+  $('password').autocomplete = m === 'up' ? 'new-password' : 'current-password';
+  $('auth-submit').textContent = m === 'up' ? 'Create my account' : 'Sign in';
+  $('auth-err').textContent = '';
+}
+$('tab-in').onclick = () => setMode('in');
+$('tab-up').onclick = () => setMode('up');
+
+$('auth-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const btn = $('auth-submit'); btn.disabled = true; $('auth-err').textContent = '';
+  const email = $('email').value.trim(), password = $('password').value;
+  try {
+    if (mode === 'up') {
+      const name = $('name').value.trim();
+      const { data, error } = await db.auth.signUp({ email, password, options: { data: { xmas_display_name: name, display_name: name }, emailRedirectTo: location.origin + location.pathname } });
+      if (error) throw error;
+      if (!data.session) { $('auth-err').textContent = 'Check your email to confirm your account, then sign in.'; setMode('in'); }
+    } else {
+      const { error } = await db.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+    }
+  } catch (err) {
+    $('auth-err').textContent = err.message || 'Something went wrong.';
+  } finally { btn.disabled = false; }
+};
+
+$('signout').onclick = () => db.auth.signOut();
+
+$('name-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const { data: { user } } = await db.auth.getUser();
+  const { error } = await db.from('xmas_profiles').insert({ id: user.id, display_name: $('name2').value.trim() });
+  if (error) { $('name-err').textContent = error.message; return; }
+  start(user);
+};
+
+db.auth.onAuthStateChange((_event, session) => {
+  // Defer: running queries inside this callback can stall supabase-js.
+  setTimeout(() => {
+    if (session?.user) start(session.user); else { me = null; selectedId = null; show('auth'); }
+  }, 0);
+});
+
+// ---------- App ----------
+async function start(user) {
+  if (me?.id === user.id) return;
+  const { data: profile } = await db.from('xmas_profiles').select('*').eq('id', user.id).maybeSingle();
+  if (!profile) { show('naming'); return; }
+  me = profile;
+  $('hello').textContent = `Signed in as ${me.display_name}`;
+  show('app');
+  selectedId = selectedId || me.id;
+  await loadPeople();
+  await renderList();
+}
+
+async function loadPeople() {
+  const { data } = await db.from('xmas_profiles').select('id, display_name').order('display_name');
+  people = data || [];
+  // Put "My list" first.
+  people.sort((a, b) => (b.id === me.id) - (a.id === me.id));
+  const nav = $('people'); nav.innerHTML = '';
+  for (const p of people) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = p.id === me.id ? 'My list' : p.display_name;
+    b.setAttribute('aria-pressed', p.id === selectedId);
+    b.onclick = () => { selectedId = p.id; loadPeople(); renderList(); };
+    nav.appendChild(b);
+  }
+}
+
+const nameOf = (id) => people.find(p => p.id === id)?.display_name || 'Someone';
+
+async function renderList() {
+  const mine = selectedId === me.id;
+  $('list-title').textContent = mine ? 'My Christmas list' : `${nameOf(selectedId)}'s list`;
+  $('list-sub').textContent = mine
+    ? 'Only you can change this list. You won’t see what others have claimed, so it stays a surprise.'
+    : 'Tap “I’ll get this” so nobody doubles up. ' + nameOf(selectedId) + ' can’t see claims.';
+  $('add-form').classList.toggle('hidden', !mine);
+
+  const { data: items, error } = await db.from('xmas_items')
+    .select('id, owner_id, title, link, notes, created_at, xmas_claims(claimer_id)')
+    .eq('owner_id', selectedId).order('created_at');
+  const ul = $('items'); ul.innerHTML = '';
+  if (error) { ul.innerHTML = `<li class="err">${esc(error.message)}</li>`; return; }
+  if (!items.length) {
+    ul.innerHTML = `<li class="empty">${mine ? 'Your list is empty. Add your first idea below.' : 'Nothing on this list yet.'}</li>`;
+    return;
+  }
+  for (const it of items) ul.appendChild(mine ? ownItem(it) : otherItem(it));
+}
+
+function itemBody(it, claimed) {
+  const div = document.createElement('div'); div.className = 'item-main';
+  div.innerHTML = `<div class="item-title${claimed ? ' claimed' : ''}">${esc(it.title)}</div>`
+    + (it.link && safeUrl(it.link) ? `<a class="item-link" href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">${esc(shortUrl(it.link))}</a>` : '')
+    + (it.notes ? `<div class="item-notes">${esc(it.notes)}</div>` : '');
+  return div;
+}
+
+function otherItem(it) {
+  const li = document.createElement('li');
+  const claim = Array.isArray(it.xmas_claims) ? it.xmas_claims[0] : it.xmas_claims;
+  li.appendChild(itemBody(it, !!claim));
+  const act = document.createElement('div'); act.className = 'actions';
+  if (!claim) {
+    act.appendChild(btn('I’ll get this', async () => {
+      const { error } = await db.from('xmas_claims').insert({ item_id: it.id, claimer_id: me.id });
+      if (error) alertish(error.message.includes('duplicate') ? 'Someone just claimed this one.' : error.message);
+      renderList();
+    }, 'primary'));
+  } else if (claim.claimer_id === me.id) {
+    const t = document.createElement('span'); t.className = 'tag'; t.textContent = 'You’re getting this';
+    act.append(t, btn('Undo', async () => {
+      await db.from('xmas_claims').delete().eq('item_id', it.id); renderList();
+    }));
+  } else {
+    const t = document.createElement('span'); t.className = 'tag'; t.textContent = `${nameOf(claim.claimer_id)} is getting this`;
+    act.appendChild(t);
+  }
+  li.appendChild(act);
+  return li;
+}
+
+function ownItem(it) {
+  const li = document.createElement('li');
+  li.appendChild(itemBody(it, false));
+  const act = document.createElement('div'); act.className = 'actions';
+  act.append(
+    btn('Edit', () => editItem(li, it)),
+    btn('Remove', async () => {
+      if (!confirm(`Remove “${it.title}” from your list?`)) return;
+      await db.from('xmas_items').delete().eq('id', it.id); renderList();
+    })
+  );
+  li.appendChild(act);
+  return li;
+}
+
+function editItem(li, it) {
+  li.innerHTML = '';
+  const f = document.createElement('form'); f.style.flex = '1';
+  f.innerHTML = `
+    <label>Item</label><input name="title" maxlength="200" required>
+    <label>Link</label><input name="link" type="url" maxlength="1000">
+    <label>Notes</label><textarea name="notes" maxlength="1000"></textarea>
+    <div class="row"><button class="primary small" type="submit">Save</button><button class="small" type="button" data-cancel>Cancel</button></div>
+    <div class="err" role="alert"></div>`;
+  const el = f.elements;
+  el.title.value = it.title; el.link.value = it.link || ''; el.notes.value = it.notes || '';
+  f.querySelector('[data-cancel]').onclick = renderList;
+  f.onsubmit = async (e) => {
+    e.preventDefault();
+    const { error } = await db.from('xmas_items').update({
+      title: el.title.value.trim(), link: el.link.value.trim() || null, notes: el.notes.value.trim() || null
+    }).eq('id', it.id);
+    if (error) { f.querySelector('.err').textContent = error.message; return; }
+    renderList();
+  };
+  li.appendChild(f);
+  el.title.focus();
+}
+
+$('add-form').onsubmit = async (e) => {
+  e.preventDefault();
+  $('add-err').textContent = '';
+  const { error } = await db.from('xmas_items').insert({
+    owner_id: me.id,
+    title: $('new-title').value.trim(),
+    link: $('new-link').value.trim() || null,
+    notes: $('new-notes').value.trim() || null,
+  });
+  if (error) { $('add-err').textContent = error.message; return; }
+  $('add-form').reset();
+  renderList();
+  $('new-title').focus();
+};
+
+// ---------- Helpers ----------
+function btn(text, onclick, cls) {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'small' + (cls ? ' ' + cls : '');
+  b.textContent = text; b.onclick = onclick; return b;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+function safeUrl(u) { try { return ['http:', 'https:'].includes(new URL(u).protocol); } catch { return false; } }
+function shortUrl(u) { try { const x = new URL(u); return x.hostname.replace(/^www\./, ''); } catch { return u; } }
+function alertish(msg) { $('list-sub').textContent = msg; }
+
+setMode('in');
+db.auth.getSession().then(({ data }) => { if (!data.session) show('auth'); });
+</script>
+</body>
+</html>
