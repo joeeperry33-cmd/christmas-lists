@@ -53,6 +53,11 @@
   .add { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 8px; }
   .row { display: flex; gap: 8px; margin-top: 12px; }
   .empty { color: var(--muted); padding: 16px 0 4px; }
+  .pw { position: relative; }
+  .pw input { padding-right: 64px; }
+  .pw button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--green); font-size: 14px; padding: 6px 10px; }
+  .linkish { border: 0; background: none; padding: 0; color: var(--green); font-size: 14px; text-decoration: underline; cursor: pointer; }
+  .ok { color: var(--green); font-size: 14px; margin-top: 10px; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -75,9 +80,21 @@
       <label for="email">Email</label>
       <input id="email" type="email" required autocomplete="email">
       <label for="password">Password</label>
-      <input id="password" type="password" required minlength="6" autocomplete="current-password">
+      <div class="pw"><input id="password" type="password" required minlength="6" autocomplete="current-password"><button type="button" class="pw-toggle" aria-label="Show password">Show</button></div>
       <div class="row"><button class="primary" type="submit" id="auth-submit" style="flex:1">Sign in</button></div>
+      <div class="row" id="forgot-row"><button type="button" class="linkish" id="forgot">Forgot your password?</button></div>
       <div class="err" id="auth-err" role="alert"></div>
+    </form>
+  </section>
+
+  <!-- Set a new password (after clicking the reset email) -->
+  <section id="reset" class="auth card hidden">
+    <h2>Choose a new password</h2>
+    <form id="reset-form">
+      <label for="newpw">New password</label>
+      <div class="pw"><input id="newpw" type="password" required minlength="6" autocomplete="new-password"><button type="button" class="pw-toggle" aria-label="Show password">Show</button></div>
+      <div class="row"><button class="primary" type="submit" style="flex:1">Save new password</button></div>
+      <div class="err" id="reset-err" role="alert"></div>
     </form>
   </section>
 
@@ -128,7 +145,7 @@ const SUPABASE_KEY = 'sb_publishable_qaByi9wbx_WYcXPGucj4VQ_6uIcHNgv';
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
-const show = (id) => ['auth', 'naming', 'app'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+const show = (id) => ['auth', 'reset', 'naming', 'app'].forEach(s => $(s).classList.toggle('hidden', s !== id));
 
 let me = null;          // { id, display_name }
 let people = [];        // all profiles
@@ -144,6 +161,7 @@ function setMode(m) {
   $('name').required = m === 'up';
   $('password').autocomplete = m === 'up' ? 'new-password' : 'current-password';
   $('auth-submit').textContent = m === 'up' ? 'Create my account' : 'Sign in';
+  $('forgot-row').classList.toggle('hidden', m === 'up');
   $('auth-err').textContent = '';
 }
 $('tab-in').onclick = () => setMode('in');
@@ -170,6 +188,36 @@ $('auth-form').onsubmit = async (e) => {
 
 $('signout').onclick = () => db.auth.signOut();
 
+// Show / hide password
+document.querySelectorAll('.pw-toggle').forEach(b => b.onclick = () => {
+  const input = b.previousElementSibling, showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  b.textContent = showing ? 'Show' : 'Hide';
+  b.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+});
+
+// Forgot password: email a reset link that comes back to this page
+$('forgot').onclick = async () => {
+  const email = $('email').value.trim();
+  const msg = $('auth-err');
+  if (!email) { msg.textContent = 'Type your email above first, then tap \u201cForgot your password?\u201d'; $('email').focus(); return; }
+  $('forgot').disabled = true;
+  const { error } = await db.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  $('forgot').disabled = false;
+  msg.textContent = error ? error.message : 'Check your email for a link to reset your password.';
+};
+
+let recovering = false;
+$('reset-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const { error } = await db.auth.updateUser({ password: $('newpw').value });
+  if (error) { $('reset-err').textContent = error.message; return; }
+  recovering = false;
+  history.replaceState(null, '', location.pathname);
+  const { data: { user } } = await db.auth.getUser();
+  me = null; start(user);
+};
+
 $('name-form').onsubmit = async (e) => {
   e.preventDefault();
   const { data: { user } } = await db.auth.getUser();
@@ -178,9 +226,11 @@ $('name-form').onsubmit = async (e) => {
   start(user);
 };
 
-db.auth.onAuthStateChange((_event, session) => {
+db.auth.onAuthStateChange((event, session) => {
+  if (event === 'PASSWORD_RECOVERY') recovering = true;
   // Defer: running queries inside this callback can stall supabase-js.
   setTimeout(() => {
+    if (recovering) { show('reset'); $('newpw').focus(); return; }
     if (session?.user) start(session.user); else { me = null; selectedId = null; show('auth'); }
   }, 0);
 });
