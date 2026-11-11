@@ -6,6 +6,10 @@ A simple site where each family member keeps a Christmas list.
 - Only you can add, edit, or remove items on your own list.
 - Others can mark an item "I'll get this" so nobody double-buys. The list owner never sees claims.
 
+## Guest link
+
+People without an account (e.g. grandparents) can view every list read-only with the secret guest link: `https://joeeperry33-cmd.github.io/christmas-lists/?guest=CODE`. Items someone has claimed show as "Already bought", without saying who. See `supabase/guest_view.sql` to change the code.
+
 ## How it works
 
 - `index.html` is the whole site (plain HTML + JavaScript), hosted on GitHub Pages.

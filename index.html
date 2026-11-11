@@ -58,6 +58,7 @@
   .pw button { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); border: 0; background: transparent; color: var(--green); font-size: 14px; padding: 6px 10px; }
   .linkish { border: 0; background: none; padding: 0; color: var(--green); font-size: 14px; text-decoration: underline; cursor: pointer; }
   .ok { color: var(--green); font-size: 14px; margin-top: 10px; }
+  .tag.bought { color: var(--green); }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -109,6 +110,21 @@
     </form>
   </section>
 
+  <!-- Guest view (no login): read-only, shows bought items but never who bought them -->
+  <section id="guest" class="hidden">
+    <header>
+      <div>
+        <h1>🎄 Perry Family Lists</h1>
+        <div class="muted">Viewing as a guest. Items marked “Already bought” are taken care of.</div>
+      </div>
+    </header>
+    <nav class="people" id="g-people" aria-label="Family members"></nav>
+    <div class="card">
+      <h2 id="g-title"></h2>
+      <ul class="items" id="g-items"></ul>
+    </div>
+  </section>
+
   <!-- Main app -->
   <section id="app" class="hidden">
     <header>
@@ -145,8 +161,9 @@ const SUPABASE_KEY = 'sb_publishable_qaByi9wbx_WYcXPGucj4VQ_6uIcHNgv';
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 const $ = (id) => document.getElementById(id);
-const show = (id) => ['auth', 'reset', 'naming', 'app'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+const show = (id) => ['auth', 'reset', 'naming', 'app', 'guest'].forEach(s => $(s).classList.toggle('hidden', s !== id));
 
+const guestCode = new URLSearchParams(location.search).get('guest');
 let me = null;          // { id, display_name }
 let people = [];        // all profiles
 let selectedId = null;  // whose list is showing
@@ -227,6 +244,7 @@ $('name-form').onsubmit = async (e) => {
 };
 
 db.auth.onAuthStateChange((event, session) => {
+  if (guestCode) return;
   if (event === 'PASSWORD_RECOVERY') recovering = true;
   // Defer: running queries inside this callback can stall supabase-js.
   setTimeout(() => {
@@ -382,8 +400,52 @@ function safeUrl(u) { try { return ['http:', 'https:'].includes(new URL(u).proto
 function shortUrl(u) { try { const x = new URL(u); return x.hostname.replace(/^www\./, ''); } catch { return u; } }
 function alertish(msg) { $('list-sub').textContent = msg; }
 
-setMode('in');
-db.auth.getSession().then(({ data }) => { if (!data.session) show('auth'); });
+// ---------- Guest view ----------
+let guestLists = [], guestSel = 0;
+
+async function startGuest() {
+  show('guest');
+  const { data, error } = await db.rpc('xmas_guest_view', { p_code: guestCode });
+  if (error) {
+    $('g-title').textContent = 'This guest link isn\u2019t working.';
+    $('g-items').innerHTML = '<li class="empty">Ask the family for a new link.</li>';
+    return;
+  }
+  guestLists = data || [];
+  renderGuest();
+}
+
+function renderGuest() {
+  const nav = $('g-people'); nav.innerHTML = '';
+  guestLists.forEach((p, i) => {
+    const b = document.createElement('button'); b.type = 'button';
+    b.textContent = p.name; b.setAttribute('aria-pressed', i === guestSel);
+    b.onclick = () => { guestSel = i; renderGuest(); };
+    nav.appendChild(b);
+  });
+  const ul = $('g-items'); ul.innerHTML = '';
+  const person = guestLists[guestSel];
+  if (!person) { $('g-title').textContent = 'No lists yet.'; return; }
+  $('g-title').textContent = `${person.name}'s list`;
+  if (!person.items.length) { ul.innerHTML = '<li class="empty">Nothing on this list yet.</li>'; return; }
+  for (const it of person.items) {
+    const li = document.createElement('li');
+    li.appendChild(itemBody(it, it.bought));
+    if (it.bought) {
+      const act = document.createElement('div'); act.className = 'actions';
+      const t = document.createElement('span'); t.className = 'tag bought'; t.textContent = 'Already bought';
+      act.appendChild(t); li.appendChild(act);
+    }
+    ul.appendChild(li);
+  }
+}
+
+if (guestCode) {
+  startGuest();
+} else {
+  setMode('in');
+  db.auth.getSession().then(({ data }) => { if (!data.session) show('auth'); });
+}
 </script>
 </body>
 </html>
