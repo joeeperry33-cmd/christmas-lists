@@ -1,4 +1,5 @@
 -- Guest view: a secret link (?guest=CODE) lets people without an account see
+-- Note: supabase/item_ranking.sql later replaces xmas_guest_view to sort by rank. Run it after this file.
 -- every list read-only. Bought items are flagged, but never who bought them.
 -- The code lives in xmas_guest_access (no RLS policies, so nobody can read it
 -- through the API). To change the link:

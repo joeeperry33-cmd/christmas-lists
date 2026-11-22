@@ -59,6 +59,12 @@
   .linkish { border: 0; background: none; padding: 0; color: var(--green); font-size: 14px; text-decoration: underline; cursor: pointer; }
   .ok { color: var(--green); font-size: 14px; margin-top: 10px; }
   .tag.bought { color: var(--green); }
+  .rank { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 600; background: var(--line); color: var(--muted); margin-top: 1px; }
+  .rank.top { background: var(--gold); color: var(--card); }
+  .top-tag { display: inline-block; font-size: 12px; font-weight: 600; color: var(--gold); text-transform: uppercase; letter-spacing: .04em; }
+  .actions.below { justify-content: flex-start; margin-top: 8px; }
+  .move { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+  .move button { padding: 0 8px; font-size: 12px; line-height: 20px; }
   .hidden { display: none !important; }
 </style>
 </head>
@@ -115,7 +121,7 @@
     <header>
       <div>
         <h1>🎄 Perry Family Lists</h1>
-        <div class="muted">Viewing as a guest. Items marked “Already bought” are taken care of.</div>
+        <div class="muted">Viewing as a guest. Lists are ranked by what each person wants most. Items marked “Already bought” are taken care of.</div>
       </div>
     </header>
     <nav class="people" id="g-people" aria-label="Family members"></nav>
@@ -288,34 +294,62 @@ async function renderList() {
   const mine = selectedId === me.id;
   $('list-title').textContent = mine ? 'My Christmas list' : `${nameOf(selectedId)}'s list`;
   $('list-sub').textContent = mine
-    ? 'Only you can change this list. You won’t see what others have claimed, so it stays a surprise.'
-    : 'Tap “I’ll get this” so nobody doubles up. ' + nameOf(selectedId) + ' can’t see claims.';
+    ? 'Only you can change this list. Put what you want most at the top with the arrows. You won’t see what others have claimed, so it stays a surprise.'
+    : 'Ranked by what ' + nameOf(selectedId) + ' wants most. Tap “I’ll get this” so nobody doubles up. ' + nameOf(selectedId) + ' can’t see claims.';
   $('add-form').classList.toggle('hidden', !mine);
 
   const { data: items, error } = await db.from('xmas_items')
-    .select('id, owner_id, title, link, notes, created_at, xmas_claims(claimer_id)')
-    .eq('owner_id', selectedId).order('created_at');
+    .select('id, owner_id, title, link, notes, rank, created_at, xmas_claims(claimer_id)')
+    .eq('owner_id', selectedId).order('rank').order('created_at');
   const ul = $('items'); ul.innerHTML = '';
   if (error) { ul.innerHTML = `<li class="err">${esc(error.message)}</li>`; return; }
   if (!items.length) {
     ul.innerHTML = `<li class="empty">${mine ? 'Your list is empty. Add your first idea below.' : 'Nothing on this list yet.'}</li>`;
     return;
   }
-  for (const it of items) ul.appendChild(mine ? ownItem(it) : otherItem(it));
+  if (mine) { myItems = items; drawMine(); return; }
+  items.forEach((it, i) => ul.appendChild(otherItem(it, i)));
 }
 
-function itemBody(it, claimed) {
+// Your own list, drawn from myItems so reordering feels instant.
+let myItems = [];
+function drawMine() {
+  const ul = $('items'); ul.innerHTML = '';
+  myItems.forEach((it, i) => ul.appendChild(ownItem(it, i)));
+}
+
+async function moveItem(i, to) {
+  if (to < 0 || to >= myItems.length || to === i) return;
+  const [it] = myItems.splice(i, 1);
+  myItems.splice(to, 0, it);
+  drawMine();
+  const { error } = await db.rpc('xmas_reorder_items', { p_ids: myItems.map(x => x.id) });
+  if (error) { alertish('Couldn’t save the new order: ' + error.message); renderList(); }
+}
+
+// Position badge: 1 is most wanted; the top 3 are highlighted.
+const TOP = 3;
+function rankBadge(i) {
+  const b = document.createElement('div');
+  b.className = 'rank' + (i < TOP ? ' top' : '');
+  b.textContent = i + 1;
+  b.title = i === 0 ? 'Most wanted' : `#${i + 1} most wanted`;
+  return b;
+}
+
+function itemBody(it, claimed, i) {
   const div = document.createElement('div'); div.className = 'item-main';
-  div.innerHTML = `<div class="item-title${claimed ? ' claimed' : ''}">${esc(it.title)}</div>`
+  div.innerHTML = (i === 0 ? '<div class="top-tag">★ Most wanted</div>' : '')
+    + `<div class="item-title${claimed ? ' claimed' : ''}">${esc(it.title)}</div>`
     + (it.link && safeUrl(it.link) ? `<a class="item-link" href="${esc(it.link)}" target="_blank" rel="noopener noreferrer">${esc(shortUrl(it.link))}</a>` : '')
     + (it.notes ? `<div class="item-notes">${esc(it.notes)}</div>` : '');
   return div;
 }
 
-function otherItem(it) {
+function otherItem(it, i) {
   const li = document.createElement('li');
   const claim = Array.isArray(it.xmas_claims) ? it.xmas_claims[0] : it.xmas_claims;
-  li.appendChild(itemBody(it, !!claim));
+  li.append(rankBadge(i), itemBody(it, !!claim, i));
   const act = document.createElement('div'); act.className = 'actions';
   if (!claim) {
     act.appendChild(btn('I’ll get this', async () => {
@@ -336,10 +370,18 @@ function otherItem(it) {
   return li;
 }
 
-function ownItem(it) {
+function ownItem(it, i) {
   const li = document.createElement('li');
-  li.appendChild(itemBody(it, false));
-  const act = document.createElement('div'); act.className = 'actions';
+  const mv = document.createElement('div'); mv.className = 'move';
+  const up = btn('▲', () => moveItem(i, i - 1)); up.disabled = i === 0;
+  up.setAttribute('aria-label', `Move “${it.title}” up`);
+  const down = btn('▼', () => moveItem(i, i + 1)); down.disabled = i === myItems.length - 1;
+  down.setAttribute('aria-label', `Move “${it.title}” down`);
+  mv.append(up, down);
+  const body = itemBody(it, false, i);
+  li.append(rankBadge(i), body);
+  const act = document.createElement('div'); act.className = 'actions below';
+  if (i > 0) act.appendChild(btn('Make #1', () => moveItem(i, 0)));
   act.append(
     btn('Edit', () => editItem(li, it)),
     btn('Remove', async () => {
@@ -347,7 +389,8 @@ function ownItem(it) {
       await db.from('xmas_items').delete().eq('id', it.id); renderList();
     })
   );
-  li.appendChild(act);
+  body.appendChild(act);
+  li.appendChild(mv);
   return li;
 }
 
@@ -428,16 +471,16 @@ function renderGuest() {
   if (!person) { $('g-title').textContent = 'No lists yet.'; return; }
   $('g-title').textContent = `${person.name}'s list`;
   if (!person.items.length) { ul.innerHTML = '<li class="empty">Nothing on this list yet.</li>'; return; }
-  for (const it of person.items) {
+  person.items.forEach((it, i) => {
     const li = document.createElement('li');
-    li.appendChild(itemBody(it, it.bought));
+    li.append(rankBadge(i), itemBody(it, it.bought, i));
     if (it.bought) {
       const act = document.createElement('div'); act.className = 'actions';
       const t = document.createElement('span'); t.className = 'tag bought'; t.textContent = 'Already bought';
       act.appendChild(t); li.appendChild(act);
     }
     ul.appendChild(li);
-  }
+  });
 }
 
 if (guestCode) {
